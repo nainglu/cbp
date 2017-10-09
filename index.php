@@ -7,7 +7,7 @@
     
 <title>CHAN BROTHERS | PRESTIGE</title>
 <meta name="fb_admins_meta_tag" content="">
- 
+<link rel="shortcut icon" href="cb-prestige_files/aaa.jpg" type="image/x-icon">
 <meta property="og:type" content="article">
 
 <meta property="og:site_name" content="cb-prestige">
