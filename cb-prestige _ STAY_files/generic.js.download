@@ -1,0 +1,326 @@
+function getParameterByName(name) {
+
+    if (!RegExp)
+      return null;
+    var regex = new RegExp('[?&]' + name + '=([^&]*)');
+    var match=regex.exec(window.location.search);
+    return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
+}
+
+var default_on_transition = function(data){
+
+    $('#text0').hide();
+    $('#text1').show();    
+    $('body').addClass('transit');
+    $('body').addClass('hover');
+    setTimeout( function() {
+        $('body').removeClass('transit');
+    },500);
+}
+var default_off_transition = function(data){
+
+    $('#text1').hide();
+    $('#text0').show();        
+    $('body').addClass('transit');
+    $('body').removeClass('hover');
+
+    setTimeout( function() {
+        $('body').removeClass('transit');
+    },1000);
+}
+var resize_figure_padding = function(width, height){
+    var content_container = $('#figcaption');
+    var full_padding = content_container.css('padding').replace("px", "")*2;
+    // Scale down the padding unltill we are at a decent size
+    if(width>0 && height > 0){
+        while(full_padding*2>width || full_padding*2>height){
+            full_padding = full_padding-2;
+        }
+    }
+    if(full_padding<0){
+        full_padding = 0;
+    }
+    content_container.css('padding', full_padding/2+'px');
+}
+var default_card_on_load = function(data){
+    var text0 = data.text0, text1 = data.text1;
+    if(!data.text0 && !data.text1){
+        text0 = 'Rollover to Preview FX';
+    }
+    $('#text0').html(parseText(text0));
+    $('#text1').html(parseText(text1));
+}
+
+var apply_gradients = function( data ) {
+
+    // Apply default overlay if there is one
+    apply_gradient('figure-overlay-off',
+                    data.overlayOffAngle,
+                    data.overlayOffColour1,
+                    data.overlayOffColour2,
+                    data.overlayOffColour1On,
+                    data.overlayOffColour2On,
+                    data.overlayOffColour1Opacity,
+                    data.overlayOffColour2Opacity);
+
+    apply_gradient('figure-overlay-on',
+                    data.overlayOnAngle,
+                    data.overlayOnColour1,
+                    data.overlayOnColour2,
+                    data.overlayOnColour1On,
+                    data.overlayOnColour2On,
+                    data.overlayOnColour1Opacity,
+                    data.overlayOnColour2Opacity);
+}
+
+var default_figure_on_load = function(data, opts ){
+
+    opts = opts || {};
+
+    var container = $('#figure'), content_container = $('#figcaption'), image = $('#figure-image'), overlay_on = $('#figure-overlay-on'), overlay_off = $('#figure-overlay-off');
+    
+    if (!opts.skipGrid) {
+        $('#container').addClass('grid');
+    }
+
+    if (!opts.skipPadding) {
+        $('#container').css('padding-top', '0px');
+        $('#container').css('padding-bottom', '0px');
+    }
+    var width = $(window).width(), height = $(window).height();
+    // Load image0
+    if(!data.image0 || data.image0.relativeUri == '66fcc8_c403d4925cd14d23955ccf9f10077620.png'){
+        data.image0.relativeUri = '5a47467975164707be86bfeac844e3a2.jpg';
+    }
+    
+    var imageWidth=width+(opts.imageWidthPlus || 0);
+    var imageHeight=height+(opts.imageHeightPlus || 0);
+
+    if (data.image0.relativeUri && data.image0.relativeUri!='') {
+
+        var src0=Wix.Utils.Media.getResizedImageUrl(data.image0.relativeUri,imageWidth,imageHeight);
+        image.attr("src", src0);
+
+    }
+
+    // Set the container to match the image size
+    container.width(width);
+    container.height(height);
+    image.width(imageWidth);
+    image.height(imageHeight);
+    // Overwrites some of the .grid figure css so that we can scale
+    container.css({'max-width': '9999px'});
+    container.css({'max-height': '9999px'});
+    overlay_on.width(width);
+    overlay_on.height(height);
+    overlay_off.width(width);
+    overlay_off.height(height);
+
+    // Sometimes the padding is causing issues, I need to resize things to match the padding.
+    // But more importantly the passing is sometimes too big
+
+    if (!opts.skipPadding) {
+        resize_figure_padding(width,height);
+        var padding = content_container.css('padding').replace("px", "");
+        content_container.width(width-(padding*2));
+        content_container.height(height-(padding*2));
+
+    }
+
+    // Load colour
+    // this effects rollover effects
+    //image.css('background-color', data.backColor0);
+    $('#figure').css({'background-color': 'transparent'});
+
+    apply_gradients( data );
+
+    $('#figure-overlay-off').show();
+    $('#figure-overlay-on').hide();
+
+    $('.figure-text').addClass('text0');
+    $('.figure-text').removeClass('text1');
+
+    // if theres a URL, append it
+    if(data.url && data.url !== '')
+        container.on('click', function(){window.location = url});
+}
+
+
+var default_figure_span_content = function(data, title_style, content_delimiter){
+    title_style = typeof title_style !== 'undefined' ? title_style : {'-1':'span'};
+    content_delimiter = typeof content_delimiter !== 'undefined' ? content_delimiter : '\n';
+
+    var container = $('#figure'), content_container = $('#figcaption'), image = $('#figure-image');
+
+    var text_title=data.heading0;
+    var text_content = data.subheading0;
+    return {title:parseText(text_title), content: parseText(text_content)};
+}
+
+var calls=0;
+
+var fontSizes={}
+
+var deviceType=getParameterByName('deviceType');
+var widthMaxRatio=0.9;
+if (deviceType=='mobile') {
+    widthMaxRatio=0.8;
+}
+
+var autoZoomAttemptInterval=100;
+
+var zoomText = function(callback) {
+
+    if (calls++===0 ) {
+
+        function autoZoomBoth() {
+
+            var h2=$('h2');
+            var p=$('p');
+
+            if (h2.css('font-family')=='sans-serif' || p.css('font-family')=='sans-serif') {
+
+                setTimeout( autoZoomBoth, autoZoomAttemptInterval );
+
+            } else {
+
+                function autoZoom(elemId,elem) {
+
+                    var width=parseInt(elem.width()*widthMaxRatio);
+
+                    var scrollWidth=(elem[0].scrollWidth);
+
+                    var zoom=width/scrollWidth;
+
+                    var fontSize=parseFloat(elem.css('font-size'));
+                    var fontFace=elem.css('font-family');
+
+                    elem.attr('o-font-size', fontSize);
+                    elem.attr('o-font-family', fontFace);
+                    elem.attr('o-width', width);
+                    elem.attr('o-swidth', scrollWidth);
+
+                    if (zoom<1 && zoom!=0) {
+                        var newFontSize=parseInt(fontSize*zoom);
+                        elem.css('font-size', newFontSize+'px');
+                        elem.css('line-height', newFontSize+'px');
+
+                        fontSizes[elemId]=newFontSize;
+                    } else {
+                        fontSizes[elemId]=fontSize;
+                        elem.css('line-height', fontSize+'px');
+                    }
+
+                }
+
+                autoZoom('h2',h2);
+                autoZoom('p',p);
+
+                if (callback) 
+                    callback();
+
+            }
+
+        }
+
+        setTimeout( autoZoomBoth, autoZoomAttemptInterval );
+
+    }
+}
+
+var default_figure_off_text_style = function(data, callback){
+
+    $('.figure-text').addClass('text0');
+    $('.figure-text').removeClass('text1');
+  //  $('.figure-text').css({'color': data.textColor0});
+    zoomText(callback);
+}
+
+var default_figure_on_text_style = function(data){
+    $('.figure-text').addClass('text1');
+    $('.figure-text').removeClass('text0');
+  //  $('.figure-text').css({ 'color': data.textColor1});
+}
+// styles array('0'=>'<b>', '-1'=>'<strong>'), that sort of thing
+var style_line = function(line, styles){
+    line_array = line.split(' ');
+    for(var key in styles){
+        var style = styles[key];
+        key = parseInt(key);
+        while(key < 0 && line_array.length>0){
+            key = key + line_array.length;
+        }
+        if(key<line_array.length){
+            line_array[key] = '<'+style+'>'+line_array[key]+'</'+style+'>';
+        }
+    }
+    return line_array.join(" ");
+}
+
+var apply_gradient = function(element_id, angle, colour1, colour2, colour1On, colour2On, opacity1, opacity2){
+
+    if(colour1On == 'false')
+        colour1 = false;
+    if(colour2On == 'false')
+        colour2 = false;
+    if(!colour1){
+        colour1 = 'rgba(0,0,0,0)';
+    }else{
+        colour1 = colour1.replace("rgb", "rgba");
+        colour1 = colour1.replace(")", ","+(opacity1/100)+")");
+    }
+    if(!colour2){
+        colour2 = 'rgba(0,0,0,0)';
+    }else{
+        colour2 = colour2.replace("rgb", "rgba");
+        colour2 = colour2.replace(")", ","+(opacity2/100)+")");
+    }
+
+    $('#'+element_id).css('background-image', '-webkit-linear-gradient('+angle+'deg, '+colour1+', '+colour2+')'); // Safari
+    $('#'+element_id).css('background-image', '-o-linear-gradient('+angle+'deg, '+colour1+', '+colour2+')');      // Opera
+    $('#'+element_id).css('background-image', '-moz-linear-gradient('+angle+'deg, '+colour1+', '+colour2+')');    // Firefox
+    $('#'+element_id).css('background-image', 'linear-gradient('+angle+'deg, '+colour1+', '+colour2+')');         // Standard
+}
+var addSocialButtons = function(data, padding){
+    var socials = '';
+    if(data.link1)
+        socials += "<a href='"+data.link1+"' style='padding:"+padding+"px;'><i class='fa "+data.link1Icon.value+"'></i></a>";
+    if(data.link2)
+        socials += "<a href='"+data.link2+"' style='padding:"+padding+"px;'><i class='fa "+data.link2Icon.value+"'></i></a>";
+    if(data.link3)
+        socials += "<a href='"+data.link3+"' style='padding:"+padding+"px;'><i class='fa "+data.link3Icon.value+"'></i></a>";
+    if(data.link4)
+        socials += "<a href='"+data.link4+"' style='padding:"+padding+"px;'><i class='fa "+data.link4Icon.value+"'></i></a>";
+
+    return socials;
+}
+
+var parseText = function(text){
+    // Parses things like bellow into actual links
+    // dasd [a="www.google.com"]link[a]asda dasd [a="www.google2.com"]link2[a]dd
+    if(!text || text == "")
+        return '';
+    var patt = new RegExp(/\[a\=\"([^\"]+)\"\]([^\[]+)\[a\]/g);
+    if (text.match(patt)) {
+         text = text.replace(patt, '<a href="$1">$2</a>');
+    }
+    return text;
+
+}
+
+// var default_figure_image_switch = function(on, settings){
+//     if(settings.image1 && settings.image1 !== '5a47467975164707be86bfeac844e3a2.jpg'){
+//         var imageEnd;
+//         if(on == true){
+//             imageEnd = settings.image1.relativeUri;
+//         } else {
+//             imageEnd = settings.image0.relativeUri;
+//         }
+// 
+//         $("#figure-image").fadeOut(function() { 
+//             $(this).load(function() { $(this).fadeIn(); }); 
+//             image.attr("src", Wix.Utils.Media.getImageUrl(imageEnd,$("#figure-image").width(),$("#figure-image").height()));); 
+//         }); 
+//     }
+//     
+// }
